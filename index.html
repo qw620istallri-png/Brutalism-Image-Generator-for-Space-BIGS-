@@ -50,7 +50,7 @@ body{background:#fff;font-family:"Courier New",monospace;color:#000;display:flex
 .toggle .knob{position:absolute;top:3px;width:14px;height:14px;border-radius:7px;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
 .toggle.on{background:#000;}.toggle.on .knob{left:19px;}.toggle.off{background:#ccc;}.toggle.off .knob{left:3px;}
 #main{flex:1;display:flex;flex-direction:column;align-items:center;padding:18px 14px;overflow-y:auto;}
-#toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;}
+#toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;width:100%;}
 #seed-info{font-size:12px;color:#999;margin-bottom:14px;letter-spacing:2px;}
 #cv-wrap{position:relative;display:inline-block;}
 canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #000;}
@@ -209,7 +209,7 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
 .vfx-section-header .color-section-title{margin:0;flex:1;}
 .vfx-arrow{font-size:11px;color:#999;width:12px;flex-shrink:0;transition:transform .15s;display:inline-block;}
 .vfx-arrow.open{transform:rotate(90deg);}
-#vfx-body.closed{display:none;}
+
 /* Effect block */
 .vfx-effect{border:1px solid #e8e8e8;margin-bottom:6px;background:#fafafa;}
 .vfx-effect-header{display:flex;align-items:center;gap:7px;padding:5px 7px;}
@@ -327,6 +327,7 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
     <button class="tab-btn active" data-tab="layers">COUCHES</button>
     <button class="tab-btn" data-tab="elements">ÉLÉMENTS</button>
     <button class="tab-btn" data-tab="couleurs">COULEURS</button>
+    <button class="tab-btn" data-tab="vfx">VFX</button>
   </div>
 
   <!-- TAB 1: COUCHES -->
@@ -484,15 +485,22 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
       <button class="color-act-btn" id="btn-rotate-colors">↺ CYCLE</button>
     </div>
 
-    <!-- VFX section -->
-    <div class="color-section" id="vfx-section">
-      <div class="vfx-section-header" id="vfx-header">
-        <span class="vfx-arrow" id="vfx-arrow">▶</span>
-        <span class="color-section-title">VFX POST-TRAITEMENT</span>
+  </div>
+  </div>
+
+
+  <!-- TAB 4: VFX -->
+  <div id="tab-vfx" class="tab-pane">
+  <div id="vfx-tab-inner" style="padding:10px 18px;flex:1;overflow-y:auto;min-width:580px;">
+    <div style="font-size:14px;font-weight:900;letter-spacing:2px;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+      <span>VFX POST-TRAITEMENT</span>
+      <div style="display:flex;align-items:center;gap:6px;">
         <span id="vfx-active-count" style="font-size:9px;color:#888;letter-spacing:1px;flex-shrink:0;"></span>
-        <button class="btn btn-sm" id="btn-vfx-toggle" title="Activer/Désactiver tous les VFX" style="padding:3px 8px;font-size:9px;margin-left:auto;flex-shrink:0;">ALL ON</button>
+        <button class="btn btn-sm" id="btn-vfx-toggle" title="Activer/Désactiver tous les VFX" style="padding:3px 8px;font-size:9px;flex-shrink:0;">ALL ON</button>
       </div>
-      <div id="vfx-body" class="closed">
+    </div>
+    <div id="vfx-body">
+
         <div class="vfx-effect off" data-vfx="pixel">
           <div class="vfx-effect-header">
             <button class="toggle off" data-vfx="pixel"><span class="knob"></span></button>
@@ -903,7 +911,6 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
             </div>
           </div>
         </div>
-      </div>
     </div>
   </div>
   </div>
@@ -911,16 +918,19 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
 </div>
 <div id="main">
   <div id="toolbar">
-    <button class="btn" id="btn-panel">◂ MASQUER</button>
+    <button class="btn" id="btn-panel" style="margin-right:auto;">◂ MASQUER</button>
     <button class="btn" id="btn-prev">◀</button>
-    <button class="btn" id="btn-gen">GÉNÉRER</button>
+    <input type="text" id="inp-seed" style="width:90px;font-family:'Courier New',monospace;font-size:11px;font-weight:900;border:2px solid #000;padding:5px 6px;text-align:center;letter-spacing:1px;" placeholder="SEED" title="Entrer une seed ou laisser vide pour aléatoire">
+    <button class="btn" id="btn-gen">SEED</button>
     <button class="btn" id="btn-next">▶</button>
-    <button class="btn" id="btn-unpin-all" title="Désépingler tous les éléments manuels">📌 LIBÉRER</button>
-    <div class="dl-cluster">
-      <button class="btn" id="btn-dl">⤓ PNG</button><button id="btn-dl-scale" title="Résolution export: 1× / 2× / 4×">1×</button>
+    <button class="btn btn-sm" id="btn-unpin-all" title="Désépingler tous les éléments manuels">📌</button>
+    <div id="export-cluster" style="margin-left:auto;display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+      <div class="dl-cluster">
+        <button class="btn" id="btn-dl" style="padding:9px 18px;font-size:14px;letter-spacing:2px;">⤓ EXPORT PNG</button><button id="btn-dl-scale" title="Résolution export: 1× / 2× / 4×" style="padding:9px 10px;">1×</button>
+      </div>
+      <button class="btn btn-sm" id="btn-load-png" title="Charger un PNG exporté (code intégré dans l'image)" style="font-size:9px;padding:3px 8px;opacity:0.7;">⤒ CHARGER PNG</button>
+      <input type="file" id="inp-load-png" accept="image/png" style="display:none">
     </div>
-    <button class="btn btn-sm" id="btn-load-png" title="Charger un PNG exporté (code intégré dans l'image)">⤒ CHARGER PNG</button>
-    <input type="file" id="inp-load-png" accept="image/png" style="display:none">
   </div>
   <div id="seed-info"></div>
   <div id="cv-wrap">
@@ -2071,6 +2081,7 @@ function updateInfo(){
   const pinCount=Object.values(overrides).filter(o=>o.pinned).length;
   const pinStr=pinCount?`  |  📌 ${pinCount}`:'';
   document.getElementById("seed-info").textContent=`SEED: ${seed}  |  ${histIdx+1}/${history.length}  |  ${CW}\u00D7${CH}${pinStr}`;
+  const inp=document.getElementById("inp-seed");if(inp){inp.value=seed;seedInputDirty=false;}
   const btn=document.getElementById("btn-unpin-all");
   if(btn){btn.style.opacity=pinCount?'1':'0.35';btn.style.pointerEvents=pinCount?'auto':'none';}
 }
@@ -2343,7 +2354,21 @@ document.getElementById("btn-unpin-all").addEventListener("click",()=>{
   if(any){undoStack=[];render();}
 });
 document.getElementById("btn-panel").addEventListener("click",()=>{panelOpen=!panelOpen;document.getElementById("panel").classList.toggle("closed",!panelOpen);document.getElementById("btn-panel").textContent=panelOpen?"\u25C2 MASQUER":"\u25B8 CONTR\u00D4LES";});
-document.getElementById("btn-gen").addEventListener("click",()=>generate());
+let seedInputDirty=false; // true when user manually typed in the seed field
+document.getElementById("inp-seed").addEventListener("input",()=>{seedInputDirty=true;});
+document.getElementById("btn-gen").addEventListener("click",()=>{
+  const inp=document.getElementById("inp-seed");
+  if(seedInputDirty){
+    const val=(inp.value||'').trim();
+    const n=parseInt(val);
+    if(!isNaN(n)&&n>0)generate(n>>>0);
+    else generate();
+    seedInputDirty=false;
+  } else generate();
+});
+document.getElementById("inp-seed").addEventListener("keydown",e=>{
+  if(e.key==="Enter")document.getElementById("btn-gen").click();
+});
 document.getElementById("btn-prev").addEventListener("click",()=>{if(histIdx>0){histIdx--;seed=history[histIdx];clearOverrides();render();}});
 document.getElementById("btn-next").addEventListener("click",()=>{if(histIdx<history.length-1){histIdx++;seed=history[histIdx];clearOverrides();render();}});
 document.getElementById("btn-dl").addEventListener("click",()=>{
@@ -3672,12 +3697,12 @@ function applyVFX(ctx){
 }
 
 function initVFX(){
-  const header=document.getElementById('vfx-header');
+  const header=document.getElementById('vfx-tab-inner');
   const body=document.getElementById('vfx-body');
-  const arrow=document.getElementById('vfx-arrow');
+
   const toggleAllBtn=document.getElementById('btn-vfx-toggle');
   const countBadge=document.getElementById('vfx-active-count');
-  if(!header)return;
+  if(!body)return;
 
   // Track saved states for restore after "ALL OFF"
   let vfxSavedStates=null;
@@ -3688,14 +3713,7 @@ function initVFX(){
     if(toggleAllBtn)toggleAllBtn.textContent=activeCount>0?'ALL OFF':'ALL ON';
   }
 
-  // Collapse toggle — only on arrow/title, not on the button
-  let vfxOpen=false;
-  header.addEventListener('click',(e)=>{
-    if(e.target===toggleAllBtn||toggleAllBtn.contains(e.target))return;
-    vfxOpen=!vfxOpen;
-    body.classList.toggle('closed',!vfxOpen);
-    arrow.classList.toggle('open',vfxOpen);
-  });
+  // VFX is now its own tab — no collapse toggle needed
 
   // Global toggle: ALL OFF saves states → ALL ON restores them
   if(toggleAllBtn)toggleAllBtn.addEventListener('click',(e)=>{
