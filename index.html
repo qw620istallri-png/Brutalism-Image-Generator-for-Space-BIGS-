@@ -308,6 +308,16 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
 #bg-opacity-row label{font-size:8px;font-weight:900;letter-spacing:1px;color:#888;}
 #bg-opacity-row input[type=range]{width:60px;accent-color:#000;height:12px;}
 #bg-opacity-row .sl-val{font-size:8px;color:#aaa;width:24px;text-align:right;}
+#bg-scale-row{display:none;align-items:center;gap:4px;}
+#bg-scale-row.visible{display:flex;}
+#bg-scale-row label{font-size:8px;font-weight:900;letter-spacing:1px;color:#888;}
+#bg-scale-row input[type=range]{width:60px;accent-color:#000;height:12px;}
+#bg-scale-row .sl-val{font-size:8px;color:#aaa;width:28px;text-align:right;}
+#bg-offset-row{display:none;align-items:center;gap:4px;}
+#bg-offset-row.visible{display:flex;}
+#bg-offset-row label{font-size:8px;font-weight:900;letter-spacing:1px;color:#888;flex-shrink:0;}
+#bg-offset-row input[type=range]{width:50px;accent-color:#000;height:12px;}
+#bg-offset-row .sl-val{font-size:8px;color:#aaa;width:24px;text-align:right;flex-shrink:0;}
 
 </style>
 </head>
@@ -934,6 +944,19 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
           <input type="range" id="bg-opacity" min="5" max="100" value="100">
           <span class="sl-val" id="bg-opacity-val">100</span>
         </div>
+        <div id="bg-scale-row">
+          <label>ÉCHELLE</label>
+          <input type="range" id="bg-scale" min="10" max="400" value="100">
+          <span class="sl-val" id="bg-scale-val">100%</span>
+        </div>
+        <div id="bg-offset-row">
+          <label>X</label>
+          <input type="range" id="bg-off-x" min="-500" max="500" value="0">
+          <span class="sl-val" id="bg-off-x-val">0</span>
+          <label>Y</label>
+          <input type="range" id="bg-off-y" min="-500" max="500" value="0">
+          <span class="sl-val" id="bg-off-y-val">0</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1409,11 +1432,13 @@ const LAYER_ID_MAP = LAYERS.map(l=>l.id);
    └─────────────────────────────────────────────────────────────┘
    ================================================================ */
 
-const LAYER_VERSION = 0;  // Increment when adding new layers
-const LAYER_COUNT_V0 = 28; // Number of layers at version 0 (current)
+const LAYER_VERSION = 1;  // v1: added new visual variants (nodegraph, constellation, labeled bars, etc.)
+const LAYER_COUNT_V0 = 28; // Number of layers at version 0 (original 28 layers)
+let _activeLayerVersion = LAYER_VERSION; // Version of currently loaded code; new variants only show when >= 1
 
 // Per-element PRNG: creates an isolated random sequence per element.
 // Use inside DR.* loops for NEW features only. Never replace existing r() calls.
+// IMPORTANT: always gate with `if(_activeLayerVersion>=LAYER_VERSION)` so old codes render unchanged.
 function elemRng(layerSeed, elemIdx){ return rng(layerSeed + elemIdx * 9973 + 77773); }
 // Stable palette index — must not reorder
 const PAL_IDS = ['bw','acid','violet','forest','teal','cyber','rust','ice','blood','scarlet'];
@@ -1641,6 +1666,7 @@ function importCompact(code){
     // Read layerVersion if bits remain (added post-v7)
     let importedLayerVersion=0;
     try{importedLayerVersion=br.r(4);}catch(e){importedLayerVersion=0;}
+    _activeLayerVersion=importedLayerVersion;
     // Disable layers that didn't exist in the imported version
     if(importedLayerVersion<LAYER_VERSION){
       for(let li=LAYER_COUNT_V0;li<LAYERS.length;li++) controls[LAYERS[li].id].on=false;
@@ -1757,9 +1783,9 @@ hudBar(ctx,r,d,sz,P,_ls){const bH=sc(ri(r,12,30),sz);const poss=[];if(r()>.3)pos
       ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.setLineDash([2,2]);ctx.strokeRect(ep.x,ep.y,w,bH);ctx.setLineDash([]);}
     else if(v===7){// Solid with center gap
       ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,w,bH);ctx.fillStyle=BG;const gap2=Math.max(1,Math.floor(bH*.3));ctx.fillRect(ep.x+2,ep.y+gap2,w-4,bH-gap2*2);}
-    // NEW HUD variants via elemRng (override ~25% of segments)
+    // NEW HUD variants via elemRng (only for v1+ codes)
     const er=elemRng(_ls,idx);
-    if(er()<0.25){
+    if(_activeLayerVersion>=1&&er()<0.25){
       // Grayscale stepped gradient (TV test pattern)
       const nSegs=4+Math.floor(er()*6);const segW=Math.max(2,Math.floor(w/nSegs));
       ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,w,bH);
@@ -1769,7 +1795,7 @@ hudBar(ctx,r,d,sz,P,_ls){const bH=sc(ri(r,12,30),sz);const poss=[];if(r()>.3)pos
         ctx.fillRect(ep.x+s*segW,ep.y,segW,bH);
       }
       ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,w,bH);
-    } else if(er()<0.40){
+    } else if(_activeLayerVersion>=1&&er()<0.40){
       // Labeled dual bar (R- [====] R+)
       ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,w,bH);
       ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,w,bH);
@@ -1786,7 +1812,7 @@ hudBar(ctx,r,d,sz,P,_ls){const bH=sc(ri(r,12,30),sz);const poss=[];if(r()>.3)pos
 
 progressBar(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/25));for(let c=0;c<count;c++){const bH=sc(ri(r,6,18),sz);let y;const pos2=ri(r,0,3);if(pos2===0)y=CH-BD-bH-ri(r,10,40);else if(pos2===1)y=BD+ri(r,10,40);else y=ri(r,BD+50,CH-BD-bH-50);const ep=regElem("progressBar_"+c,BD,y,IW(),bH+20,"Progress bar "+(c+1));P.addA(ep?ep.x:BD,ep?ep.y:y,IW(),bH,"rect");if(!ep)continue;const x=ep.x;y=ep.y;const w=IW();const fill=r()*.6+.1;
   const er=elemRng(_ls,c);
-  if(er()<0.35){
+  if(_activeLayerVersion>=1&&er()<0.35){
     // NEW: multi-segment bar with triangle markers
     ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(x,y,w,bH);
     const nSegs=4+Math.floor(er()*8);const segW=Math.floor(w/nSegs);
@@ -1857,9 +1883,9 @@ circle(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/30));for(let i=
     ctx.beginPath();safeArc(ctx,cx2,cy2,rad);ctx.stroke();
     const nt=ri(r,6,24);const tlen=Math.max(3,sc(5,sz));
     for(let k=0;k<nt;k++){const a=Math.PI*2*k/nt;ctx.beginPath();ctx.moveTo(cx2+Math.cos(a)*(rad-tlen),cy2+Math.sin(a)*(rad-tlen));ctx.lineTo(cx2+Math.cos(a)*rad,cy2+Math.sin(a)*rad);ctx.stroke();}}
-  // NEW variants via elemRng
+  // NEW variants via elemRng (only for v1+ codes)
   const er=elemRng(_ls,i);
-  if(er()<0.18){
+  if(_activeLayerVersion>=1&&er()<0.18){
     // Vitruvian: outer ellipse + inner ellipse + radial lines + cross marks
     ctx.save();
     const ry2=rad*0.7;
@@ -1911,12 +1937,15 @@ diagonals(ctx,r,d,sz,P,_ls){
 },
 
 darkRects(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/7));for(let i=0;i<count;i++){const v=ri(r,0,5);let rw,rh;if(v===4){rw=sc(ri(r,100,400),sz);rh=sc(ri(r,6,20),sz);}else{rw=sc(ri(r,20,220),sz);rh=sc(ri(r,20,180),sz);}const basePos=P.plR(r,rw,rh);const ep=regElem("darkRects_"+i,basePos.x,basePos.y,rw,rh,"Rect "+(i+1));P.addA(ep?ep.x:basePos.x,ep?ep.y:basePos.y,rw,rh,"rect");P.addPR(ep?ep.x:basePos.x,ep?ep.y:basePos.y,rw,rh);if(!ep)continue;
-  // ALWAYS run original (preserves r() sequence)
-  if(v===0||v===4){ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,rw,rh);P.addDZ(ep.x,ep.y,rw,rh);}else if(v===1){ctx.strokeStyle=FG;ctx.lineWidth=r()>.5?1:2;ctx.strokeRect(ep.x,ep.y,rw,rh);}else if(v===2){ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,rw,rh);ctx.strokeRect(ep.x+3,ep.y+3,rw-6,rh-6);}else{ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,rw,rh);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,rw,rh);const fh=Math.floor(rh*r()*.7+rh*.1);ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,rw,fh);P.addDZ(ep.x,ep.y,rw,fh);}
-  // Overdraw with new variant
+  // Pre-check new variant to suppress original drawing if needed
   const er=elemRng(_ls,i);
-  if(er()<0.12){
-    ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,rw,rh);
+  const _useNew=_activeLayerVersion>=1&&er()<0.12;
+  if(_useNew)ctx.globalAlpha=0;
+  // Original (always runs to consume r())
+  if(v===0||v===4){ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,rw,rh);P.addDZ(ep.x,ep.y,rw,rh);}else if(v===1){ctx.strokeStyle=FG;ctx.lineWidth=r()>.5?1:2;ctx.strokeRect(ep.x,ep.y,rw,rh);}else if(v===2){ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,rw,rh);ctx.strokeRect(ep.x+3,ep.y+3,rw-6,rh-6);}else{ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,rw,rh);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,rw,rh);const fh=Math.floor(rh*r()*.7+rh*.1);ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,rw,fh);P.addDZ(ep.x,ep.y,rw,fh);}
+  if(_useNew)ctx.globalAlpha=1;
+  // New variant
+  if(_useNew){
     const nCols=3+Math.floor(er()*5);const colW=Math.max(4,Math.floor(rw/nCols)-2);
     const labels3=["Z.A01","Z.A02","Z.A03","Z.A04","X.B01","X.B02","M.01","M.02"];
     const lfs=Math.max(4,Math.min(colW-2,sc(6,sz)));
@@ -1952,12 +1981,15 @@ hatchZones(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/15));for(le
 patternZones(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/15));const shapes=["dot","square","diamond","cross","circle"];for(let c=0;c<count;c++){const zw=sc(ri(r,50,280),sz),zh=sc(ri(r,40,220),sz);const basePos=P.aP(r,zw,zh,.5);const ep=regElem("patternZones_"+c,basePos.x,basePos.y,zw,zh,"Motifs "+(c+1));P.addA(ep?ep.x:basePos.x,ep?ep.y:basePos.y,zw,zh,"patternzone");if(!ep)continue;const shape=pick(r,shapes);const dotSz=Math.max(2,sc(ri(r,2,6),sz));const sp=Math.max(dotSz+2,sc(ri(r,6,16),sz));ctx.fillStyle=FG;ctx.strokeStyle=FG;for(let px=ep.x+sp;px<ep.x+zw;px+=sp)for(let py=ep.y+sp;py<ep.y+zh;py+=sp)if(r()>.3)drawShape(ctx,shape,px,py,dotSz);P.addDZ(ep.x,ep.y,zw,zh);}},
 
 panels(ctx,r,d,sz,P,_ls){const pc=Math.max(2,Math.floor(dn(d)/8)),rows=dn(d)>50?2:1,perRow=Math.ceil(pc/rows);const pw=sc(ri(r,40,75),sz),ph=sc(ri(r,55,105),sz),gap=sc(ri(r,4,12),sz);const totalW=perRow*(pw+gap);const gp=P.gP(r,totalW,rows*(ph+gap+10));let idx=0;for(let row=0;row<rows;row++){const baseY=cyf(gp.y+row*(ph+gap+10),ph);for(let i=0;i<perRow;i++){const baseX=cxf(gp.x+i*(pw+gap),pw);const ep=regElem("panels_"+idx,baseX,baseY,pw,ph,"Panneau "+idx);P.addA(ep?ep.x:baseX,ep?ep.y:baseY,pw,ph,"panels");idx++;if(!ep)continue;
-  // ALWAYS run original (preserves r() sequence)
-  ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,pw,ph);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,pw,ph);const pv=ri(r,0,3);ctx.save();ctx.beginPath();ctx.rect(ep.x+2,ep.y+2,pw-4,ph*.55);ctx.clip();if(pv===0){const sw=ri(r,2,5);for(let s=0;s<pw;s+=sw*2)if(r()>.2){ctx.fillStyle=FG;ctx.fillRect(ep.x+2+s,ep.y+2,sw,ph*.55);}}else if(pv===1){const sh=ri(r,2,4);for(let s=0;s<ph*.55;s+=sh*2)if(r()>.2){ctx.fillStyle=FG;ctx.fillRect(ep.x+2,ep.y+2+s,pw-4,sh);}}else{ctx.fillStyle=FG;for(let dx=ep.x+5;dx<ep.x+pw-3;dx+=5)for(let dy=ep.y+4;dy<ep.y+ph*.55;dy+=5)if(r()>.3)ctx.fillRect(dx,dy,2,2);}ctx.restore();const lh=Math.floor(ph*.3),ly=ep.y+ph-lh-2;ctx.fillStyle=FG;ctx.fillRect(ep.x+4,ly,pw-8,lh);ctx.fillStyle=BG;ctx.font=`bold ${Math.max(7,Math.floor(lh*.78))}px "Courier New",monospace`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(ri(r,1,99)).padStart(2,"0"),ep.x+pw/2,ly+lh/2);
-  // Overdraw with new variant
+  // Pre-check new variant to suppress original drawing if needed
   const er=elemRng(_ls,idx);
-  if(er()<0.20){
-    ctx.fillStyle=FG;ctx.fillRect(ep.x,ep.y,pw,ph);
+  const _useNew=_activeLayerVersion>=1&&er()<0.20;
+  if(_useNew)ctx.globalAlpha=0;
+  // Original (always runs to consume r())
+  ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,pw,ph);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,pw,ph);const pv=ri(r,0,3);ctx.save();ctx.beginPath();ctx.rect(ep.x+2,ep.y+2,pw-4,ph*.55);ctx.clip();if(pv===0){const sw=ri(r,2,5);for(let s=0;s<pw;s+=sw*2)if(r()>.2){ctx.fillStyle=FG;ctx.fillRect(ep.x+2+s,ep.y+2,sw,ph*.55);}}else if(pv===1){const sh=ri(r,2,4);for(let s=0;s<ph*.55;s+=sh*2)if(r()>.2){ctx.fillStyle=FG;ctx.fillRect(ep.x+2,ep.y+2+s,pw-4,sh);}}else{ctx.fillStyle=FG;for(let dx=ep.x+5;dx<ep.x+pw-3;dx+=5)for(let dy=ep.y+4;dy<ep.y+ph*.55;dy+=5)if(r()>.3)ctx.fillRect(dx,dy,2,2);}ctx.restore();const lh=Math.floor(ph*.3),ly=ep.y+ph-lh-2;ctx.fillStyle=FG;ctx.fillRect(ep.x+4,ly,pw-8,lh);ctx.fillStyle=BG;ctx.font=`bold ${Math.max(7,Math.floor(lh*.78))}px "Courier New",monospace`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(String(ri(r,1,99)).padStart(2,"0"),ep.x+pw/2,ly+lh/2);
+  if(_useNew)ctx.globalAlpha=1;
+  // New variant
+  if(_useNew){
     const nStripes=3+Math.floor(er()*4);const strH=Math.floor(ph/nStripes);
     for(let s=0;s<nStripes;s++){
       const gray=Math.floor(255*s/(nStripes-1));
@@ -1976,13 +2008,15 @@ panels(ctx,r,d,sz,P,_ls){const pc=Math.max(2,Math.floor(dn(d)/8)),rows=dn(d)>50?
   P.addDZ(ep.x,ep.y,pw,ph);}}},
 
 barCharts(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/20));for(let c=0;c<count;c++){const bw=sc(ri(r,60,200),sz),bh=sc(ri(r,35,120),sz);const basePos=P.aP(r,bw,bh);const ep=regElem("barCharts_"+c,basePos.x,basePos.y,bw,bh,"Chart "+(c+1));P.addA(ep?ep.x:basePos.x,ep?ep.y:basePos.y,bw,bh,"chart");if(!ep)continue;ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,bw,bh);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(ep.x,ep.y,bw,bh);
-  // ALWAYS run original (preserves r() sequence)
+  // Pre-check new variant to suppress original drawing if needed
+  const er=elemRng(_ls,c);const chartMode=_activeLayerVersion>=1?er():1;
+  const _useNewChart=chartMode<0.30||chartMode<0.55;
+  if(_useNewChart)ctx.globalAlpha=0;
+  // Original (always runs to consume r())
   const bars=ri(r,4,10),barW=Math.max(2,Math.floor(bw/bars));for(let i=0;i<bars;i++){const h=ri(r,Math.floor(bh*.1),Math.floor(bh*.95));ctx.fillStyle=FG;ctx.fillRect(ep.x+i*barW+1,ep.y+bh-h,barW-2,h);}
-  // Overdraw with new variant
-  const er=elemRng(_ls,c);const chartMode=er();
+  if(_useNewChart)ctx.globalAlpha=1;
   if(chartMode<0.30){
     // Horizontal labeled bars
-    ctx.fillStyle=BG;ctx.fillRect(ep.x+1,ep.y+1,bw-2,bh-2);
     const nBars=3+Math.floor(er()*5);const barH=Math.max(4,Math.floor(bh/nBars)-2);
     const labelW=Math.floor(bw*0.25);const fs=Math.max(5,Math.min(barH-1,sc(7,sz)));
     const labels=["R.RGGG","G.BYY","Y.BRRR","X.A01","X.A02","Z.A01","Z.A02","M.CXX","P.DFF","K.0E2"];
@@ -2002,7 +2036,6 @@ barCharts(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/20));for(let
     }
   } else if(chartMode<0.55){
     // Stepped waterfall bars
-    ctx.fillStyle=BG;ctx.fillRect(ep.x+1,ep.y+1,bw-2,bh-2);
     const nSteps=3+Math.floor(er()*5);const stepW=Math.max(6,Math.floor(bw/nSteps)-2);
     const fs=Math.max(5,sc(7,sz));
     for(let i=0;i<nSteps;i++){
@@ -2142,7 +2175,7 @@ dataBlocks(ctx,r,d,sz,P,_ls){const _fnt=layerFontCSS('dataBlocks');const count=M
   const tw=Math.max(...lines.map(l=>l.length))*fs*.6;const th=lines.length*lineH;const basePos=P.plT(r,tw,th,.55);if(!basePos)continue;const ep=regElem("dataBlocks_"+c,basePos.x,basePos.y,tw,th,"Data: "+lines[0].substring(0,20));P.addTB(ep?ep.x:basePos.x,ep?ep.y:basePos.y,tw,th);if(!ep)continue;const col=getElemColor(P,"dataBlocks_"+c,ep.x,ep.y,tw,th);
   // NEW: elemRng-based variant override — draw special graphics instead of text
   const er=elemRng(_ls,c);
-  if(er()<0.12){
+  if(_activeLayerVersion>=1&&er()<0.12){
     // Body diagram: simple stick figure with measurement annotations
     ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;
     const bx2=ep.x,by2=ep.y,bw2=tw,bh2=th;
@@ -2168,7 +2201,7 @@ dataBlocks(ctx,r,d,sz,P,_ls){const _fnt=layerFontCSS('dataBlocks');const count=M
       ctx.setLineDash([1,2]);ctx.beginPath();ctx.moveTo(midX+armW+2,my);ctx.lineTo(midX+3,my);ctx.stroke();ctx.setLineDash([]);
     });
     ctx.restore();
-  } else if(er()<0.20){
+  } else if(_activeLayerVersion>=1&&er()<0.20){
     // Sensor readout: a matrix of labeled readings
     ctx.save();ctx.fillStyle=col;
     const afs=Math.max(5,sc(6,sz));
@@ -2214,19 +2247,20 @@ crosshairs(ctx,r,d,sz,P,_ls){
     for(let gy=1;gy<=rows&&pts.length<tc;gy++)for(let gx=1;gx<=cols&&pts.length<tc;gx++)
       pts.push({x:clamp(Math.round(BD+gx*gX+jX),BD+arm+3,CW-BD-arm-3),y:clamp(Math.round(BD+gy*gY+jY),BD+arm+3,CH-BD-arm-3)});
   }
+  // Decide variant type ONCE for all crosshairs in this render
+  const er0=elemRng(_ls,0);
+  const useDiamond=_activeLayerVersion>=1&&er0()<0.20;
   pts.forEach((p,idx)=>{
     const ep=regElem("crosshairs_"+idx,p.x-arm,p.y-arm,arm*2,arm*2,"Réticule "+(idx+1));
     if(!ep)return;
-    const er=elemRng(_ls,idx);
-    if(er()<0.20){
-      // NEW: diamond lattice node — rotated square with dots at corners
+    if(useDiamond){
+      // Diamond lattice node
+      const er=elemRng(_ls,idx+1);
       const cx3=ep.x+arm,cy3=ep.y+arm;const dSize=arm*0.85;
       ctx.strokeStyle=FG;ctx.lineWidth=lw;
-      // Diamond (rotated square)
       ctx.beginPath();
       ctx.moveTo(cx3,cy3-dSize);ctx.lineTo(cx3+dSize,cy3);
       ctx.lineTo(cx3,cy3+dSize);ctx.lineTo(cx3-dSize,cy3);ctx.closePath();ctx.stroke();
-      // Dots at vertices
       const dotR=Math.max(2,sc(3,sz));
       ctx.fillStyle=FG;
       [[0,-dSize],[dSize,0],[0,dSize],[-dSize,0]].forEach(([dx2,dy2])=>{
@@ -2234,9 +2268,7 @@ crosshairs(ctx,r,d,sz,P,_ls){
         ctx.beginPath();safeArc(ctx,cx3+dx2,cy3+dy2,dotR);
         if(filled)ctx.fill();else{ctx.strokeStyle=FG;ctx.lineWidth=lw;ctx.stroke();}
       });
-      // Center dot
       ctx.beginPath();safeArc(ctx,cx3,cy3,dotR*1.3);ctx.fill();
-      // Connecting lines to center
       ctx.strokeStyle=FG;ctx.lineWidth=Math.max(0.5,lw*0.6);
       ctx.setLineDash([Math.max(1,sc(2,sz)),Math.max(1,sc(2,sz))]);
       [[0,-dSize],[dSize,0],[0,dSize],[-dSize,0]].forEach(([dx2,dy2])=>{
@@ -2244,7 +2276,6 @@ crosshairs(ctx,r,d,sz,P,_ls){
       });
       ctx.setLineDash([]);
     } else {
-      // ORIGINAL
       stampCross(ctx,ep.x+arm,ep.y+arm,arm,lw,v);
     }
   });
@@ -2268,9 +2299,9 @@ indicators(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/14));for(le
     ctx.strokeStyle=FG;ctx.lineWidth=Math.max(1,sc(1.5,sz));const cx3=ep.x+iw/2,cy3=ep.y+ih;const rad2=Math.min(iw,ih*2)/2;const fillA=r()*.8+.1;ctx.beginPath();ctx.arc(cx3,cy3,rad2,Math.PI,Math.PI+Math.PI*fillA);ctx.stroke();ctx.beginPath();ctx.arc(cx3,cy3,rad2,Math.PI,Math.PI*2);ctx.stroke();}
   else if(v===8){// Boolean grid
     const gcols=ri(r,4,10),grow=ri(r,1,3);const gcw=Math.floor(iw/gcols);for(let gr=0;gr<grow;gr++)for(let gc=0;gc<gcols;gc++){if(r()>.4){ctx.fillStyle=FG;ctx.fillRect(ep.x+gc*gcw+1,ep.y+gr*(ih/grow),gcw-2,ih/grow-1);}else{ctx.strokeStyle=FG;ctx.lineWidth=.5;ctx.strokeRect(ep.x+gc*gcw+1,ep.y+gr*(ih/grow),gcw-2,ih/grow-1);}}}
-  // NEW indicator variants via elemRng
+  // NEW indicator variants via elemRng (only for v1+ codes)
   const er=elemRng(_ls,i);
-  if(er()<0.15){
+  if(_activeLayerVersion>=1&&er()<0.15){
     // Half-circle notched dial (compass/gauge)
     const cx3=ep.x+iw/2,cy3=ep.y+ih;const rad2=Math.min(iw/2,ih)-2;
     ctx.strokeStyle=FG;ctx.lineWidth=Math.max(1,sc(1.2,sz));
@@ -2288,7 +2319,7 @@ indicators(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/14));for(le
     ctx.lineWidth=Math.max(1.5,sc(2,sz));
     ctx.beginPath();ctx.moveTo(cx3,cy3);ctx.lineTo(cx3+Math.cos(needleA)*rad2*0.8,cy3+Math.sin(needleA)*rad2*0.8);ctx.stroke();
     ctx.fillStyle=FG;ctx.beginPath();safeArc(ctx,cx3,cy3,Math.max(2,sc(2.5,sz)));ctx.fill();
-  } else if(er()<0.25){
+  } else if(_activeLayerVersion>=1&&er()<0.25){
     // Pie segments (like the black/white split circles in the image)
     const cx3=ep.x+iw/2,cy3=ep.y+ih/2;const rad2=Math.min(iw,ih)/2-1;
     const nSegs=2+Math.floor(er()*4);const startA=er()*Math.PI*2;
@@ -2301,13 +2332,15 @@ indicators(ctx,r,d,sz,P,_ls){const count=Math.max(1,Math.floor(dn(d)/14));for(le
 }},
 
 sideMarkers(ctx,r,d,sz,P,_ls){const side=ri(r,0,2),mx=side===0?BD+ri(r,3,20):CW-BD-ri(r,5,20);const my=ri(r,BD+30,CH-BD-200);const count=Math.max(2,Math.floor(dn(d)/8)),mSize=Math.max(3,sc(ri(r,7,15),sz)),gap=sc(ri(r,12,30),sz);const th=count*gap;const ep=regElem("sideMarkers_0",mx-5,my,mSize+10,th,"Side marks");P.addA(ep?ep.x:mx-5,ep?ep.y:my,mSize+10,th,"markers");if(!ep)return;
-  // ALWAYS run original (preserves r() sequence)
+  // Pre-check new variant to suppress original drawing if needed
+  const er=elemRng(_ls,0);const mkMode=_activeLayerVersion>=1?er():1;
+  const _useNewMk=mkMode<0.30||(_activeLayerVersion>=1&&mkMode<0.50);
+  if(_useNewMk)ctx.globalAlpha=0;
+  // Original (always runs to consume r())
   ctx.fillStyle=FG;for(let i=0;i<count;i++)if(r()>.35)ctx.fillRect(ep.x+5,ep.y+i*gap,mSize,mSize);
-  // Overdraw with new variant
-  const er=elemRng(_ls,0);const mkMode=er();
+  if(_useNewMk)ctx.globalAlpha=1;
   if(mkMode<0.30){
     // Degree compass marks
-    ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,mSize+10,th);
     const angles=[0,90,120,180,270,360];const symbols=["\u2316","\u25CF","\u25CB","\u2609","\u2295","\u25C6"];
     const fs=Math.max(6,sc(8,sz));
     ctx.font=`${fs}px "Courier New",monospace`;ctx.textAlign="left";ctx.textBaseline="middle";
@@ -2317,9 +2350,8 @@ sideMarkers(ctx,r,d,sz,P,_ls){const side=ri(r,0,2),mx=side===0?BD+ri(r,3,20):CW-
       ctx.fillStyle=FG;ctx.fillText(sym,ep.x+2,y2+mSize/2);
       ctx.fillText(angles[i]+"\u00B0",ep.x+mSize+6,y2+mSize/2);
     }
-  } else if(mkMode<0.50){
+  } else if(_activeLayerVersion>=1&&mkMode<0.50){
     // Corner crop marks
-    ctx.fillStyle=BG;ctx.fillRect(ep.x,ep.y,mSize+10,th);
     const er2=elemRng(_ls,1);
     const armLen=Math.max(8,sc(18,sz));const lw2=Math.max(1,sc(1.5,sz));
     ctx.strokeStyle=FG;ctx.lineWidth=lw2;
@@ -2335,7 +2367,7 @@ sideMarkers(ctx,r,d,sz,P,_ls){const side=ri(r,0,2),mx=side===0?BD+ri(r,3,20):CW-
 
 signature(ctx,r,d,sz,P,_ls){const _fnt=layerFontCSS('signature');const fs=Math.max(6,sc(11,sz));const txt=pick(r,["NET.NULL","TERM.ONLINE","SYS.VOID","NODE.DEAD","KERN.HALT","ORBIT.SYNC","MISSION.END","DEEP.SPACE","MRTHN:OST:VOL1","ARC.ZERO","FLUX.CARRIER","DEAD.RECKONING","VOID.SIGNAL","DRIFT.CORE","NULL.TRANSIT","DARK.VECTOR","COLD.TRANSIT","PHASE.LOCK","EVENT.ZERO","INERTIAL.DRIFT","STATIC.ORBIT","BREACH.ZERO","PHANTOM.LOG","OVERRIDE.SYS","CORRUPT.FRAME","ENTRY.VECTOR","MASS.DRIVER","STELLAR.DRIFT","SILENT.RELAY","ESCAPE.BURN","TERMINAL.OBJ","PROXY.SYNC","GRAVITY.WELL","OUTER.REACH"]);const tw=txt.length*fs*.62,th=fs+2;const angle=pick(r,[0,0,0,-Math.PI/2,Math.PI/2]);const sx=angle===0?CW-BD-tw-15:ri(r,BD+10,CW-BD-30);const sy=angle===0?CH-BD-th-10:ri(r,BD+30,CH-BD-30);const rw=angle===0?tw:th,rh=angle===0?th:tw;const ep=regElem("signature_0",sx,sy,rw,rh,"Signature");P.addTB(ep?ep.x:sx,ep?ep.y:sy,rw,rh);if(!ep)return;const col=getElemColor(P,"signature_0",ep.x,ep.y,rw,rh);
   const er=elemRng(_ls,0);
-  if(er()<0.30){
+  if(_activeLayerVersion>=1&&er()<0.30){
     // NEW: astronomical data cartouche (multi-line, vertical)
     const afs=Math.max(5,sc(7,sz));const lh=afs+2;
     const er2=elemRng(_ls,1);
@@ -2362,6 +2394,17 @@ signature(ctx,r,d,sz,P,_ls){const _fnt=layerFontCSS('signature');const fs=Math.m
 
 trajectory(ctx,r,d,sz,P,_ls){
   const count=Math.max(1,Math.floor(dn(d)/18));
+
+  // Decide new mode ONCE for all trajectory elements in this render
+  const _er0=elemRng(_ls,999);
+  const _newMode=_activeLayerVersion>=1?(_er0()<0.18?'nodegraph':_er0()<0.30?'constellation':null):null;
+  // When new mode is active, draw originals on an offscreen canvas to consume r() without visual output
+  const _realCtx=ctx;
+  let _dummyC=null;
+  if(_newMode){
+    _dummyC=document.createElement('canvas');_dummyC.width=CW;_dummyC.height=CH;
+    ctx=_dummyC.getContext('2d');
+  }
   ctx.strokeStyle=FG;ctx.fillStyle=FG;
 
   for(let c=0;c<count;c++){
@@ -2493,71 +2536,56 @@ trajectory(ctx,r,d,sz,P,_ls){
       ctx.setLineDash([]);ctx.beginPath();safeArc(ctx,cx2,cy2,Math.max(2,sc(3,sz)));ctx.fill();
     }
 
-    // ── NEW: additive overlays (drawn ON TOP of existing trajectory) ──
-    const er=elemRng(_ls,c);
-    if(er()<0.18){
-      // Node graph overlay: add labeled nodes at key points of the trajectory
-      ctx.fillStyle=FG;ctx.strokeStyle=FG;
-      const nNodes=2+Math.floor(er()*4);
-      const nodeLabels=["R","S","H","L","N","P","X","Z","M","A"];
-      const nfs=Math.max(5,sc(8,sz));
-      const nodeR=Math.max(5,sc(8+Math.floor(er()*10),sz));
-      for(let n=0;n<nNodes;n++){
-        const nx=bx+ox+bw*(0.1+er()*0.8);
-        const ny=by+oy+bh*(0.1+er()*0.8);
-        const filled=er()>0.5;
-        if(filled){
-          ctx.fillStyle=FG;ctx.beginPath();safeArc(ctx,nx,ny,nodeR);ctx.fill();
-          ctx.fillStyle=BG;ctx.font=`900 ${nfs}px "Courier New",monospace`;ctx.textAlign="center";ctx.textBaseline="middle";
-          ctx.fillText(nodeLabels[Math.floor(er()*nodeLabels.length)],nx,ny);
-        } else {
-          ctx.strokeStyle=FG;ctx.lineWidth=Math.max(1.5,sc(2,sz));
-          ctx.beginPath();safeArc(ctx,nx,ny,nodeR);ctx.stroke();
-          ctx.fillStyle=FG;ctx.font=`900 ${nfs}px "Courier New",monospace`;ctx.textAlign="center";ctx.textBaseline="middle";
-          ctx.fillText(nodeLabels[Math.floor(er()*nodeLabels.length)],nx,ny);
+    // ── NEW MODES: draw on real canvas (original was sent to offscreen) ──
+    if(_newMode){
+      const er=elemRng(_ls,c);
+      _realCtx.save();_realCtx.translate(ox,oy);
+      _realCtx.strokeStyle=FG;_realCtx.fillStyle=FG;
+      if(_newMode==='nodegraph'){
+        const nNodes=2+Math.floor(er()*4);
+        const nodeLabels=["R","S","H","L","N","P","X","Z","M","A"];
+        const nfs=Math.max(5,sc(8,sz));
+        const nodeR=Math.max(5,sc(8+Math.floor(er()*10),sz));
+        const nodes=[];
+        for(let n=0;n<nNodes;n++){
+          nodes.push({x:bx+bw*(0.15+er()*0.7),y:by+bh*(0.15+er()*0.7),r:nodeR*(0.6+er()*0.8),
+            filled:er()>0.5,label:nodeLabels[Math.floor(er()*nodeLabels.length)]});
         }
-        // Short label next to node
-        if(er()<0.5){
-          const edgeLabels=["R+","R-","ROOT","d+","d-","IN","OUT"];
-          ctx.font=`${Math.max(4,sc(5,sz))}px "Courier New",monospace`;ctx.fillStyle=FG;
-          ctx.textAlign="left";ctx.textBaseline="top";
-          ctx.fillText(edgeLabels[Math.floor(er()*edgeLabels.length)],nx+nodeR+2,ny-nfs/2);
+        _realCtx.lineWidth=Math.max(2,sc(3,sz));
+        for(let n=0;n<nodes.length;n++){
+          const ti=(n+1+Math.floor(er()*(nodes.length-1)))%nodes.length;
+          if(ti!==n){const a=nodes[n],b2=nodes[ti];
+            const cpx=(a.x+b2.x)/2+(er()-0.5)*bw*0.3,cpy=(a.y+b2.y)/2+(er()-0.5)*bh*0.3;
+            _realCtx.beginPath();_realCtx.moveTo(a.x,a.y);_realCtx.quadraticCurveTo(cpx,cpy,b2.x,b2.y);_realCtx.stroke();}
         }
+        for(const nd of nodes){
+          if(nd.filled){_realCtx.fillStyle=FG;_realCtx.beginPath();safeArc(_realCtx,nd.x,nd.y,nd.r);_realCtx.fill();
+            _realCtx.fillStyle=BG;_realCtx.font=`900 ${nfs}px "Courier New",monospace`;_realCtx.textAlign="center";_realCtx.textBaseline="middle";_realCtx.fillText(nd.label,nd.x,nd.y);
+          }else{_realCtx.strokeStyle=FG;_realCtx.lineWidth=Math.max(1.5,sc(2,sz));_realCtx.beginPath();safeArc(_realCtx,nd.x,nd.y,nd.r);_realCtx.stroke();
+            _realCtx.fillStyle=FG;_realCtx.font=`900 ${nfs}px "Courier New",monospace`;_realCtx.textAlign="center";_realCtx.textBaseline="middle";_realCtx.fillText(nd.label,nd.x,nd.y);}
+          if(er()<0.5){const edgeL=["R+","R-","ROOT","d+","d-","IN","OUT"];
+            _realCtx.font=`${Math.max(4,sc(5,sz))}px "Courier New",monospace`;_realCtx.fillStyle=FG;_realCtx.textAlign="left";_realCtx.textBaseline="top";
+            _realCtx.fillText(edgeL[Math.floor(er()*edgeL.length)],nd.x+nd.r+2,nd.y-nfs/2);}
+        }
+      } else if(_newMode==='constellation'){
+        const nDots=4+Math.floor(er()*6);const dots=[];
+        for(let n=0;n<nDots;n++){dots.push({x:bx+bw*(0.05+er()*0.9),y:by+bh*(0.05+er()*0.9),r:Math.max(1.5,sc(1.5+Math.floor(er()*5),sz)),filled:er()>0.5});}
+        _realCtx.lineWidth=Math.max(0.5,sc(0.7,sz));
+        _realCtx.setLineDash([Math.max(1,sc(1.5,sz)),Math.max(1,sc(2,sz))]);
+        for(let n=0;n<dots.length-1;n++){_realCtx.beginPath();_realCtx.moveTo(dots[n].x,dots[n].y);_realCtx.lineTo(dots[n+1].x,dots[n+1].y);_realCtx.stroke();
+          if(er()<0.35&&n+2<dots.length){_realCtx.beginPath();_realCtx.moveTo(dots[n].x,dots[n].y);_realCtx.lineTo(dots[n+2].x,dots[n+2].y);_realCtx.stroke();}}
+        _realCtx.setLineDash([]);
+        for(const d2 of dots){_realCtx.beginPath();safeArc(_realCtx,d2.x,d2.y,d2.r);
+          if(d2.filled){_realCtx.fillStyle=FG;_realCtx.fill();}else{_realCtx.strokeStyle=FG;_realCtx.lineWidth=Math.max(1,sc(1,sz));_realCtx.stroke();}}
       }
-      // Connect some nodes with thin lines
-      ctx.strokeStyle=FG;ctx.lineWidth=Math.max(1,sc(1.5,sz));
-      ctx.setLineDash([Math.max(1,sc(2,sz)),Math.max(2,sc(3,sz))]);
-      for(let n=0;n<Math.min(nNodes-1,3);n++){
-        const x1n=bx+ox+bw*(0.1+er()*0.8),y1n=by+oy+bh*(0.1+er()*0.8);
-        const x2n=bx+ox+bw*(0.1+er()*0.8),y2n=by+oy+bh*(0.1+er()*0.8);
-        ctx.beginPath();ctx.moveTo(x1n,y1n);ctx.lineTo(x2n,y2n);ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      ctx.fillStyle=FG;ctx.strokeStyle=FG;
-    }
-    else if(er()<0.30){
-      // Constellation dots overlay: scattered small dots connected by thin lines
-      ctx.strokeStyle=FG;ctx.fillStyle=FG;
-      const nDots=3+Math.floor(er()*5);
-      const dots=[];
-      for(let n=0;n<nDots;n++){
-        dots.push({x:bx+ox+bw*(0.05+er()*0.9), y:by+oy+bh*(0.05+er()*0.9), r:Math.max(1.5,sc(1.5+Math.floor(er()*4),sz)), filled:er()>0.5});
-      }
-      ctx.lineWidth=Math.max(0.5,sc(0.6,sz));
-      ctx.setLineDash([Math.max(1,sc(1.5,sz)),Math.max(1,sc(2,sz))]);
-      for(let n=0;n<dots.length-1;n++){
-        ctx.beginPath();ctx.moveTo(dots[n].x,dots[n].y);ctx.lineTo(dots[n+1].x,dots[n+1].y);ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      for(const d2 of dots){
-        ctx.beginPath();safeArc(ctx,d2.x,d2.y,d2.r);
-        if(d2.filled){ctx.fillStyle=FG;ctx.fill();}else{ctx.strokeStyle=FG;ctx.lineWidth=Math.max(1,sc(1,sz));ctx.stroke();}
-      }
-      ctx.fillStyle=FG;ctx.strokeStyle=FG;
+      _realCtx.fillStyle=FG;_realCtx.strokeStyle=FG;
+      _realCtx.restore();
     }
 
     ctx.restore();
   }
+  // Restore real ctx if we were using offscreen
+  if(_dummyC)ctx=_realCtx;
 },
 };
 
@@ -2565,7 +2593,7 @@ trajectory(ctx,r,d,sz,P,_ls){
 /* ── RENDER DEBOUNCE ── */
 let _renderPending=false;
 function scheduleRender(){if(_renderPending)return;_renderPending=true;requestAnimationFrame(()=>{_renderPending=false;render();});}
-function generate(ns){seed=((ns??Date.now()+Math.floor(Math.random()*1e5))>>>0);history.push(seed);histIdx=history.length-1;clearOverrides();undoStack=[];render();}
+function generate(ns){seed=((ns??Date.now()+Math.floor(Math.random()*1e5))>>>0);history.push(seed);histIdx=history.length-1;_activeLayerVersion=LAYER_VERSION;clearOverrides();undoStack=[];render();}
 function applyColorSwaps(ctx){
   // Post-process: invert bounding box of any swapped element using difference blend
   // swap color = BG+FG per channel → |swapCol - BG| = FG and |swapCol - FG| = BG
@@ -3134,11 +3162,22 @@ function contrastRatio(h1,h2){
 function generateRandomPalette(){
   const h=Math.random()*360;
   const sat=80+Math.random()*17;
-  const bgL=4+Math.random()*10;
-  const fgL=58+Math.random()*28;
+  const light=Math.random()>0.5; // 50% chance light background
+  let bgL,fgL,bgS;
+  if(light){
+    // Light background: high luminosity, low saturation
+    bgL=88+Math.random()*10;  // 88-98%
+    bgS=5+Math.random()*20;   // subtle tint
+    fgL=5+Math.random()*18;   // 5-23% (dark foreground)
+  } else {
+    // Dark background: low luminosity
+    bgL=4+Math.random()*10;   // 4-14%
+    bgS=28;
+    fgL=58+Math.random()*28;  // 58-86% (bright foreground)
+  }
   const accentH=(h+155+Math.random()*55)%360;
-  const accentL=52+Math.random()*28;
-  return{bg:hslToHex(h,28,bgL),fg:hslToHex(h,sat,fgL),accent:hslToHex(accentH,sat,accentL)};
+  const accentL=light?(35+Math.random()*25):(52+Math.random()*28);
+  return{bg:hslToHex(h,bgS,bgL),fg:hslToHex(h,sat,fgL),accent:hslToHex(accentH,sat,accentL)};
 }
 
 // Palette definitions — accent derived from split-complementary / triadic / analogous theory
@@ -4805,35 +4844,33 @@ function initImgPalette(){
 let bgImg=null;       // HTMLImageElement or null
 let bgMode='fit';     // 'fit' | '100' | 'canvas'
 let bgOpacity=1;      // 0.05..1
+let bgScale=1;        // 0.1..4
+let bgOffX=0,bgOffY=0; // pixel offset
 
 function drawBgImage(ctx){
   if(!bgImg)return;
   ctx.save();
   ctx.globalAlpha=bgOpacity;
+  const iw=bgImg.width,ih=bgImg.height;
   if(bgMode==='fit'){
-    // Cover: scale to fill canvas, crop excess
-    const imgRatio=bgImg.width/bgImg.height;
+    const imgRatio=iw/ih;
     const cvRatio=CW/CH;
-    let sw,sh,sx,sy;
-    if(imgRatio>cvRatio){
-      // Image is wider — fit height, crop width
-      sh=bgImg.height; sw=sh*cvRatio;
-      sx=(bgImg.width-sw)/2; sy=0;
-    } else {
-      // Image is taller — fit width, crop height
-      sw=bgImg.width; sh=sw/cvRatio;
-      sx=0; sy=(bgImg.height-sh)/2;
-    }
-    ctx.drawImage(bgImg,sx,sy,sw,sh,0,0,CW,CH);
+    let dw,dh;
+    if(imgRatio>cvRatio){dw=CW;dh=CW/imgRatio;}
+    else{dh=CH;dw=CH*imgRatio;}
+    dw*=bgScale;dh*=bgScale;
+    const dx=(CW-dw)/2+bgOffX,dy=(CH-dh)/2+bgOffY;
+    ctx.drawImage(bgImg,0,0,iw,ih,dx,dy,dw,dh);
   } else if(bgMode==='100'){
-    // Original size, centered
-    const ox=Math.round((CW-bgImg.width)/2);
-    const oy=Math.round((CH-bgImg.height)/2);
-    ctx.drawImage(bgImg,ox,oy);
+    const dw=iw*bgScale,dh=ih*bgScale;
+    const ox=Math.round((CW-dw)/2)+bgOffX;
+    const oy=Math.round((CH-dh)/2)+bgOffY;
+    ctx.drawImage(bgImg,0,0,iw,ih,ox,oy,dw,dh);
   }
-  // 'canvas' mode: canvas was already resized to match image, so just draw at full size
   else if(bgMode==='canvas'){
-    ctx.drawImage(bgImg,0,0,CW,CH);
+    const dw=CW*bgScale,dh=CH*bgScale;
+    const dx=(CW-dw)/2+bgOffX,dy=(CH-dh)/2+bgOffY;
+    ctx.drawImage(bgImg,0,0,iw,ih,dx,dy,dw,dh);
   }
   ctx.restore();
 }
@@ -4841,8 +4878,12 @@ function drawBgImage(ctx){
 function updateBgUI(){
   const controls=document.getElementById('bg-img-controls');
   const opRow=document.getElementById('bg-opacity-row');
+  const scRow=document.getElementById('bg-scale-row');
+  const offRow=document.getElementById('bg-offset-row');
   if(controls)controls.classList.toggle('visible',!!bgImg);
   if(opRow)opRow.classList.toggle('visible',!!bgImg);
+  if(scRow)scRow.classList.toggle('visible',!!bgImg);
+  if(offRow)offRow.classList.toggle('visible',!!bgImg);
   document.querySelectorAll('.bg-mode-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.bgmode===bgMode);
   });
@@ -4854,6 +4895,12 @@ function initBgImage(){
   const clearBtn=document.getElementById('btn-clear-bg');
   const opSlider=document.getElementById('bg-opacity');
   const opVal=document.getElementById('bg-opacity-val');
+  const scSlider=document.getElementById('bg-scale');
+  const scVal=document.getElementById('bg-scale-val');
+  const offXSlider=document.getElementById('bg-off-x');
+  const offXVal=document.getElementById('bg-off-x-val');
+  const offYSlider=document.getElementById('bg-off-y');
+  const offYVal=document.getElementById('bg-off-y-val');
   if(!btn||!inp)return;
 
   btn.addEventListener('click',()=>inp.click());
@@ -4866,12 +4913,16 @@ function initBgImage(){
     img.onload=()=>{
       bgImg=img;
       URL.revokeObjectURL(url);
+      bgScale=1;bgOffX=0;bgOffY=0;
+      if(scSlider){scSlider.value=100;}if(scVal){scVal.textContent='100%';}
+      if(offXSlider){offXSlider.value=0;}if(offXVal){offXVal.textContent='0';}
+      if(offYSlider){offYSlider.value=0;}if(offYVal){offYVal.textContent='0';}
       updateBgUI();
       render();
     };
     img.onerror=()=>{URL.revokeObjectURL(url);alert('Impossible de charger l\'image.');};
     img.src=url;
-    inp.value=''; // allow re-selecting same file
+    inp.value='';
   });
 
   // Mode buttons
@@ -4879,7 +4930,6 @@ function initBgImage(){
     btn.addEventListener('click',()=>{
       const mode=btn.dataset.bgmode;
       if(mode==='canvas'&&bgImg){
-        // Resize canvas to match image dimensions
         CW=bgImg.width;CH=bgImg.height;
         document.getElementById('inp-w').value=CW;
         document.getElementById('inp-h').value=CH;
@@ -4892,9 +4942,13 @@ function initBgImage(){
 
   // Clear
   if(clearBtn)clearBtn.addEventListener('click',()=>{
-    bgImg=null;bgMode='fit';bgOpacity=1;
+    bgImg=null;bgMode='fit';bgOpacity=1;bgScale=1;bgOffX=0;bgOffY=0;
     if(opSlider){opSlider.value=100;}
     if(opVal){opVal.textContent='100';}
+    if(scSlider){scSlider.value=100;}
+    if(scVal){scVal.textContent='100%';}
+    if(offXSlider){offXSlider.value=0;}if(offXVal){offXVal.textContent='0';}
+    if(offYSlider){offYSlider.value=0;}if(offYVal){offYVal.textContent='0';}
     updateBgUI();render();
   });
 
@@ -4902,6 +4956,25 @@ function initBgImage(){
   if(opSlider)opSlider.addEventListener('input',()=>{
     bgOpacity=parseInt(opSlider.value)/100;
     if(opVal)opVal.textContent=opSlider.value;
+    scheduleRender();
+  });
+
+  // Scale
+  if(scSlider)scSlider.addEventListener('input',()=>{
+    bgScale=parseInt(scSlider.value)/100;
+    if(scVal)scVal.textContent=scSlider.value+'%';
+    scheduleRender();
+  });
+
+  // Offset X/Y
+  if(offXSlider)offXSlider.addEventListener('input',()=>{
+    bgOffX=parseInt(offXSlider.value);
+    if(offXVal)offXVal.textContent=offXSlider.value;
+    scheduleRender();
+  });
+  if(offYSlider)offYSlider.addEventListener('input',()=>{
+    bgOffY=parseInt(offYSlider.value);
+    if(offYVal)offYVal.textContent=offYSlider.value;
     scheduleRender();
   });
 }
