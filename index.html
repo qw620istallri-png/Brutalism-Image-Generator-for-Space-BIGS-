@@ -9,6 +9,170 @@
 <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Bruno+Ace+SC&family=DotGothic16&family=Exo+2:wght@400;900&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=JetBrains+Mono:wght@400;800&family=Major+Mono+Display&family=Michroma&family=Orbitron:wght@400;900&family=Oxanium:wght@400;800&family=Pixelify+Sans:wght@400;700&family=Press+Start+2P&family=Rajdhani:wght@400;700&family=Share+Tech+Mono&family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&family=Turret+Road:wght@400;800&family=VT323&family=Wallpoet&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
+/* ── DARK MODE TOGGLE ── */
+#btn-darkmode{position:fixed;bottom:12px;right:12px;z-index:999;width:32px;height:32px;border-radius:50%;border:2px solid #000;background:#fff;color:#000;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;transition:all .2s;box-shadow:2px 2px 0 rgba(0,0,0,.15);}
+#btn-darkmode:hover{background:#f0f0f0;}
+body.dark #btn-darkmode{border-color:#666;background:#222;color:#eee;}
+body.dark #btn-darkmode:hover{background:#333;}
+/* ── DARK MODE OVERRIDES ── */
+body.dark{background:#1a1a1a;color:#ddd;}
+body.dark #panel{border-right-color:#555;}
+body.dark #panel-tabs-bar{border-bottom-color:#555;}
+body.dark .tab-btn{background:#1a1a1a;color:#ddd;border-right-color:#444;}
+body.dark .tab-btn:hover{background:#2a2a2a;}
+body.dark .tab-btn.active{background:#ddd;color:#1a1a1a;}
+body.dark #panel-inner{background:#1a1a1a;}
+body.dark #panel-header{border-bottom-color:#555;}
+body.dark .ctrl-section{border-bottom-color:#444;}
+body.dark .ctrl-row input[type=number]{border-color:#555;background:#222;color:#ddd;}
+body.dark .ctrl-row input[type=range]{accent-color:#ddd;}
+body.dark .mini-slider input[type=range]{accent-color:#ddd;}
+body.dark .btn{background:#ddd;color:#1a1a1a;border-color:#ddd;}
+body.dark .btn:hover{background:#bbb;}
+body.dark .btn.disabled{background:#333;color:#666;border-color:#444;}
+body.dark #inp-seed{border-color:#555;background:#222;color:#ddd;}
+body.dark #inp-code{border-color:#555;background:#222;color:#ddd;}
+body.dark #seed-info{color:#666;}
+body.dark canvas{border-color:#555;box-shadow:6px 6px 0 #555;}
+body.dark .layer-row{border-bottom-color:#333;}
+body.dark .layer-row.off{opacity:0.35;}
+body.dark .toggle.off{background:#444;}
+body.dark .toggle.on{background:#ddd;}
+body.dark .toggle.on .knob{background:#1a1a1a;}
+body.dark .lock-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .lock-btn.locked{border-color:#ddd;background:#ddd;color:#1a1a1a;}
+body.dark .shape-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .shape-btn.active{border-color:#ddd;background:#ddd;color:#1a1a1a;}
+body.dark .lg-group{border-color:#444;}
+body.dark .lg-header{background:#252525;border-bottom-color:#444;}
+body.dark .lg-header:hover{background:#2e2e2e;}
+body.dark .lg-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .lg-btn:hover,.lg-btn.active{border-color:#ddd;}
+body.dark .lg-btn.active{background:#ddd;color:#1a1a1a;}
+body.dark .elem-group{border-color:#444;}
+body.dark .elem-group-header{background:#252525;border-bottom-color:#444;}
+body.dark .elem-group-header:hover{background:#2e2e2e;}
+body.dark .elem-item:hover{background:#2a2a2a;}
+body.dark .elem-item.selected{background:#ddd;color:#1a1a1a;}
+body.dark .color-section{border-bottom-color:#444;}
+body.dark .palette-item:hover{background:#2a2a2a;}
+body.dark .palette-item.active{border-color:#ddd;background:#252525;}
+body.dark .color-swatch-btn{border-color:#555;}
+body.dark .color-hex-input{border-color:#555;background:#222;color:#ddd;}
+body.dark .color-preview-wrap{border-color:#555;}
+body.dark .color-role-badge{background:#ddd;color:#1a1a1a;}
+body.dark .cm-btn{border-color:#555;color:#ddd;}
+body.dark .cm-btn.active{background:#ddd;color:#1a1a1a;}
+body.dark .vfx-effect{border-color:#333;background:#222;}
+body.dark .vfx-seg-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .vfx-seg-btn.active{background:#ddd;color:#1a1a1a;border-color:#ddd;}
+body.dark .vfx-group-sep{border-top-color:#444;color:#666;}
+body.dark .vfx-section-header{border-top-color:#555;}
+body.dark #main{background:#1a1a1a;}
+body.dark #edit-hint{color:#555;}
+body.dark .hidden-item:hover{background:#2a2a2a;}
+body.dark .hidden-item .hi-btn{background:#ddd;color:#1a1a1a;}
+body.dark #custom-text-panel{border-top-color:#555;}
+body.dark #ct-input{border-color:#555;background:#222;color:#ddd;}
+body.dark #ct-add{background:#ddd;color:#1a1a1a;border-color:#ddd;}
+body.dark .ct-item{border-color:#444;background:#222;}
+body.dark .ct-del,.ct-vis{border-color:#555;}
+body.dark #fav-section{border-top-color:#555;}
+body.dark #fav-name{border-color:#555;background:#222;color:#ddd;}
+body.dark #fav-save-btn{background:#ddd;color:#1a1a1a;border-color:#ddd;}
+body.dark .fav-item{border-color:#444;}
+body.dark .fav-item:hover{background:#2a2a2a;}
+body.dark .bg-mode-btn{border-color:#555;color:#ddd;}
+body.dark .bg-mode-btn.active{background:#ddd;color:#1a1a1a;border-color:#ddd;}
+body.dark #btn-clear-bg{border-color:#555;color:#666;}
+body.dark #btn-dl-scale{border-color:#555;background:#222;color:#ddd;}
+body.dark .dl-cluster .btn{border-color:#555;}
+body.dark #rand-history-nav{border-color:#555;}
+body.dark .rh-btn{border-color:#555;background:#222;}
+body.dark .eg-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .ei-btn{border-color:#555;background:#222;color:#ddd;}
+body.dark .layer-font-sel{border-color:#555;background:#222;color:#ddd;}
+body.dark #img-pal-drop{border-color:#555;color:#666;}
+body.dark #img-pal-apply{background:#ddd;color:#1a1a1a;}
+body.dark .contrast-badge{border-color:currentColor;}
+body.dark #btn-auto-accent{border-color:#555;color:#ddd;}
+body.dark .color-act-btn{border-color:#555;color:#ddd;}
+/* ── CRÈME / BEACH MODE ── */
+body.creme{background:#f5f0e8;color:#4a3f2f;}
+body.creme #panel{border-right-color:#c8b99a;}
+body.creme #panel-tabs-bar{border-bottom-color:#c8b99a;}
+body.creme .tab-btn{background:#f5f0e8;color:#4a3f2f;border-right-color:#d4c9b5;}
+body.creme .tab-btn:hover{background:#ede6d8;}
+body.creme .tab-btn.active{background:#4a3f2f;color:#f5f0e8;}
+body.creme #panel-inner{background:#f5f0e8;}
+body.creme #panel-header{border-bottom-color:#c8b99a;}
+body.creme .ctrl-section{border-bottom-color:#d4c9b5;}
+body.creme .ctrl-row input[type=number]{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .ctrl-row input[type=range]{accent-color:#8b7355;}
+body.creme .mini-slider input[type=range]{accent-color:#8b7355;}
+body.creme .btn{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme .btn:hover{background:#6b5d48;}
+body.creme #inp-seed{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #inp-code{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #seed-info{color:#a89880;}
+body.creme canvas{border-color:#c8b99a;box-shadow:6px 6px 0 #c8b99a;}
+body.creme .layer-row{border-bottom-color:#e0d8c8;}
+body.creme .toggle.off{background:#d4c9b5;}
+body.creme .toggle.on{background:#4a3f2f;}
+body.creme .lock-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .lock-btn.locked{border-color:#4a3f2f;background:#4a3f2f;color:#f5f0e8;}
+body.creme .shape-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .shape-btn.active{border-color:#4a3f2f;background:#4a3f2f;color:#f5f0e8;}
+body.creme .lg-group{border-color:#d4c9b5;}
+body.creme .lg-header{background:#ede6d8;border-bottom-color:#d4c9b5;}
+body.creme .lg-header:hover{background:#e6ddd0;}
+body.creme .lg-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .lg-btn.active{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme .elem-group{border-color:#d4c9b5;}
+body.creme .elem-group-header{background:#ede6d8;border-bottom-color:#d4c9b5;}
+body.creme .elem-item:hover{background:#ede6d8;}
+body.creme .elem-item.selected{background:#4a3f2f;color:#f5f0e8;}
+body.creme .color-section{border-bottom-color:#d4c9b5;}
+body.creme .palette-item:hover{background:#ede6d8;}
+body.creme .palette-item.active{border-color:#4a3f2f;background:#faf6ef;}
+body.creme .color-swatch-btn{border-color:#c8b99a;}
+body.creme .color-hex-input{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .color-preview-wrap{border-color:#c8b99a;}
+body.creme .color-role-badge{background:#4a3f2f;color:#f5f0e8;}
+body.creme .cm-btn{border-color:#c8b99a;color:#4a3f2f;}
+body.creme .cm-btn.active{background:#4a3f2f;color:#f5f0e8;}
+body.creme .vfx-effect{border-color:#d4c9b5;background:#faf6ef;}
+body.creme .vfx-seg-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .vfx-seg-btn.active{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme .vfx-group-sep{border-top-color:#d4c9b5;color:#a89880;}
+body.creme #main{background:#f5f0e8;}
+body.creme #edit-hint{color:#a89880;}
+body.creme .hidden-item:hover{background:#ede6d8;}
+body.creme .hidden-item .hi-btn{background:#4a3f2f;color:#f5f0e8;}
+body.creme #custom-text-panel{border-top-color:#c8b99a;}
+body.creme #ct-input{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #ct-add{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme .ct-item{border-color:#d4c9b5;background:#faf6ef;}
+body.creme #fav-section{border-top-color:#c8b99a;}
+body.creme #fav-name{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #fav-save-btn{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme .fav-item{border-color:#d4c9b5;}
+body.creme .fav-item:hover{background:#ede6d8;}
+body.creme .bg-mode-btn{border-color:#c8b99a;color:#4a3f2f;}
+body.creme .bg-mode-btn.active{background:#4a3f2f;color:#f5f0e8;border-color:#4a3f2f;}
+body.creme #btn-clear-bg{border-color:#c8b99a;color:#a89880;}
+body.creme #btn-dl-scale{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #rand-history-nav{border-color:#c8b99a;}
+body.creme .rh-btn{border-color:#c8b99a;background:#faf6ef;}
+body.creme .eg-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .ei-btn{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme .layer-font-sel{border-color:#c8b99a;background:#faf6ef;color:#4a3f2f;}
+body.creme #img-pal-drop{border-color:#c8b99a;color:#a89880;}
+body.creme #img-pal-apply{background:#4a3f2f;color:#f5f0e8;}
+body.creme #btn-auto-accent{border-color:#c8b99a;color:#4a3f2f;}
+body.creme .color-act-btn{border-color:#c8b99a;color:#4a3f2f;}
+body.creme #btn-darkmode{border-color:#c8b99a;background:#f5f0e8;color:#4a3f2f;}
+body.creme #btn-darkmode:hover{background:#ede6d8;}
 body{background:#fff;font-family:"Courier New",monospace;color:#000;display:flex;height:100vh;overflow:hidden;}
 #panel{width:580px;border-right:2px solid #000;display:flex;flex-direction:column;flex-shrink:0;transition:width .25s ease;overflow:hidden;}
 #panel.closed{width:0;border-right:none;}
@@ -966,6 +1130,7 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
     <canvas id="overlay"></canvas>
   </div>
 </div>
+<button id="btn-darkmode" title="Dark mode">☀</button>
 <script>
 /* ════════════════════════════════════════════════════════════
    BRUTALIST VISUAL GENERATOR v1.56 — CLEANED
@@ -5013,6 +5178,25 @@ if(document.fonts&&document.fonts.load){
   });
   Promise.all(preloads).then(()=>render()).catch(()=>{});
 }
+/* ── THEME CYCLE: light → dark → crème ── */
+const _themes=['light','dark','creme'];
+const _themeIcons={'light':'☀','dark':'☾','creme':'🏖'};
+let _themeIdx=0;
+function applyTheme(idx){
+  _themeIdx=idx%_themes.length;
+  document.body.classList.remove('dark','creme');
+  if(_themes[_themeIdx]!=='light')document.body.classList.add(_themes[_themeIdx]);
+  document.getElementById('btn-darkmode').textContent=_themeIcons[_themes[_themeIdx]];
+  try{localStorage.setItem('brt_theme',_themes[_themeIdx]);}catch(e){}
+}
+document.getElementById('btn-darkmode').addEventListener('click',()=>applyTheme(_themeIdx+1));
+// Restore from localStorage
+try{
+  const saved=localStorage.getItem('brt_theme');
+  if(saved){const si=_themes.indexOf(saved);if(si>=0)applyTheme(si);}
+  // Legacy migration
+  else if(localStorage.getItem('brt_darkmode')==='1'){applyTheme(1);localStorage.removeItem('brt_darkmode');}
+}catch(e){}
 </script>
 </body>
 </html>
