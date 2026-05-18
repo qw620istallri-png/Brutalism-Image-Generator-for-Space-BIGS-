@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brutalist Visual Generator v1.56 — Cleaned</title>
+<title>Brutalist Visual Generator v1.7</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Bruno+Ace+SC&family=DotGothic16&family=Exo+2:wght@400;900&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=JetBrains+Mono:wght@400;800&family=Major+Mono+Display&family=Michroma&family=Orbitron:wght@400;900&family=Oxanium:wght@400;800&family=Pixelify+Sans:wght@400;700&family=Press+Start+2P&family=Rajdhani:wght@400;700&family=Share+Tech+Mono&family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&family=Turret+Road:wght@400;800&family=VT323&family=Wallpoet&display=swap" rel="stylesheet">
@@ -613,7 +613,7 @@ canvas{max-width:100%;height:auto;border:2px solid #000;box-shadow:6px 6px 0 #00
     </div>
     <div id="code-len" style="font-size:8px;color:#aaa;margin-top:3px;letter-spacing:1px;"></div>
   </div>
-  <div id="edit-hint">Glisser = épingler · Ctrl = libre · ↑↓←→ = nudge · Ctrl+Z = annuler déplacement · Shift+clic = inverser couleur · Double-clic / Suppr = cacher</div>
+  <div id="edit-hint">Glisser = épingler · Ctrl = libre · ↑↓←→ = nudge · Ctrl+Z = annuler · Shift+clic = inverser couleur · Double-clic/Suppr = cacher<br>v1.7 — ⟳ (poignée bleue) = rotation · ⤡ (poignée orange) = taille · [ ] = rotation ±5° · - = = taille · 0 = reset · Alt = pas fin</div>
   <div id="legend"><span>N = NOMBRE</span><span>S = TAILLE</span></div>
   <div id="layers-container"></div>
     <div id="custom-text-panel">
@@ -1272,16 +1272,26 @@ let elems = [];     // rebuilt each render: {id, label, x, y, w, h, hidden}
 let selectedId = null;
 let dragState = null;
 let undoStack = [];  // [{id, prevOv}] — only manual position changes
+let _curCtx=null;          // set by render() before each DR.* call for per-elem transforms
+let _elemTransformOpen=false; // true when a ctx.save() transform is pending restore
 
 function getOv(id){
   if(!overrides[id]) overrides[id]={dx:0,dy:0,hidden:false,colorSwap:false};
   return overrides[id];
 }
 
+// Close a pending per-element canvas transform opened by regElem
+function _closeElemTransform(){
+  if(_elemTransformOpen&&_curCtx){_curCtx.restore();_elemTransformOpen=false;}
+}
+
 // Called by draw functions. Returns adjusted {x,y} or null if hidden.
 // If ov.pinned is set, the element is placed at its absolute pinned position,
 // ignoring the generator's baseX/baseY entirely (no magnetic follow).
+// v1.7: applies per-element scale/rotate via canvas transform when non-default.
 function regElem(id, baseX, baseY, w, h, label){
+  // Close previous element's pending transform before opening a new one
+  _closeElemTransform();
   const ov=getOv(id);
   let fx,fy;
   if(ov.pinned){
@@ -1291,6 +1301,17 @@ function regElem(id, baseX, baseY, w, h, label){
   }
   elems.push({id,label:label||id,x:fx,y:fy,w,h,hidden:ov.hidden});
   if(ov.hidden) return null;
+  // Apply per-element scale/rotate transform (v1.7)
+  const _s=ov.scale||1; const _rt=ov.rotate||0;
+  if(_curCtx&&(Math.abs(_s-1)>0.001||Math.abs(_rt)>0.05)){
+    const _cx=fx+w/2,_cy=fy+h/2;
+    _curCtx.save();
+    _curCtx.translate(_cx,_cy);
+    _curCtx.scale(_s,_s);
+    _curCtx.rotate(_rt*Math.PI/180);
+    _curCtx.translate(-_cx,-_cy);
+    _elemTransformOpen=true;
+  }
   return {x:fx, y:fy};
 }
 
@@ -1504,11 +1525,34 @@ function drawSelectionOverlay(){
   const hs=5;
   octx.fillStyle="#0066FF";octx.setLineDash([]);
   [[e.x-hs,e.y-hs],[e.x+e.w-hs,e.y-hs],[e.x-hs,e.y+e.h-hs],[e.x+e.w-hs,e.y+e.h-hs]].forEach(([hx,hy])=>{octx.fillRect(hx,hy,hs*2,hs*2);});
-  // Position label + pin indicator
+  // Position label + pin indicator + transform info
+  const _ovSel=getOv(e.id);
+  const isPinned=_ovSel.pinned;
+  const _scDisp=_ovSel.scale||1;const _rtDisp=_ovSel.rotate||0;
+  let _tfInfo='';
+  if(Math.abs(_scDisp-1)>0.001)_tfInfo+=` ×${_scDisp.toFixed(2)}`;
+  if(Math.abs(_rtDisp)>0.05)_tfInfo+=` ${Math.round(_rtDisp)}°`;
   octx.fillStyle="#0066FF";octx.font="10px Courier New";octx.textAlign="left";octx.textBaseline="bottom";
-  const isPinned=getOv(e.id).pinned;
-  const posLabel=`${isPinned?'📌 ':''}${e.label}  ${Math.round(e.x)},${Math.round(e.y)}`;
+  const posLabel=`${isPinned?'📌 ':''}${e.label}  ${Math.round(e.x)},${Math.round(e.y)}${_tfInfo}`;
   octx.fillText(posLabel,e.x,e.y-6);
+  // v1.7 — rotation handle (top-center, 24px above selection box)
+  const _rcx=e.x+e.w/2,_rcy=e.y-24;
+  octx.strokeStyle="#0066FF";octx.lineWidth=1;octx.setLineDash([2,3]);
+  octx.beginPath();octx.moveTo(_rcx,e.y-2);octx.lineTo(_rcx,_rcy+6);octx.stroke();
+  octx.setLineDash([]);
+  octx.beginPath();octx.arc(_rcx,_rcy,6,0,Math.PI*2);
+  octx.fillStyle="#0066FF";octx.fill();
+  octx.strokeStyle="#fff";octx.lineWidth=1.5;octx.stroke();
+  // rotation arrow hint inside circle
+  octx.strokeStyle="#fff";octx.lineWidth=1;
+  octx.beginPath();octx.arc(_rcx,_rcy,3.5,Math.PI*0.3,Math.PI*1.7);octx.stroke();
+  // v1.7 — scale handle (bottom-right corner, orange square)
+  const _shx=e.x+e.w+5,_shy=e.y+e.h+5;
+  octx.fillStyle="#ff6600";octx.fillRect(_shx-5,_shy-5,10,10);
+  octx.strokeStyle="#fff";octx.lineWidth=1;octx.strokeRect(_shx-5,_shy-5,10,10);
+  // scale arrows hint
+  octx.strokeStyle="#fff";octx.lineWidth=1;
+  octx.beginPath();octx.moveTo(_shx-3,_shy-3);octx.lineTo(_shx+3,_shy+3);octx.stroke();
 }
 
 // === TEXT DBs ===
@@ -1741,7 +1785,8 @@ function exportCode(){
   // Overrides — collect non-trivial, elemIdx now 6 bits (max 63)
   const ove=[];
   for(const[eid,ov]of Object.entries(overrides)){
-    if(!ov.dx&&!ov.dy&&!ov.hidden&&!ov.colorSwap&&!ov.pinned)continue;
+    const _hasTf=(ov.scale&&Math.abs(ov.scale-1)>0.001)||(ov.rotate&&Math.abs(ov.rotate)>0.05);
+    if(!ov.dx&&!ov.dy&&!ov.hidden&&!ov.colorSwap&&!ov.pinned&&!_hasTf)continue;
     const m=eid.match(/^(.+)_(\d+)$/);if(!m)continue;
     const li=LAYER_ID_MAP.indexOf(m[1]),ei=parseInt(m[2]);
     if(li<0||li>30||ei<0||ei>63)continue;
@@ -1787,6 +1832,20 @@ function exportCode(){
   // Custom texts exported via | suffix
   // Layer version (for forward compat — new layers default OFF on old codes)
   bw.w(LAYER_VERSION,4); // 4 bits → max 15 revisions
+  // v1.7: transforms block (scale/rotate per override entry) — appended after layerVersion
+  // Guard bit: 0 = no block (old-code compat), 1 = block follows
+  const _ovHasTf=ove.some(({ov:o})=>(o.scale&&Math.abs(o.scale-1)>0.001)||(o.rotate&&Math.abs(o.rotate)>0.05));
+  bw.w(_ovHasTf?1:0,1);
+  if(_ovHasTf){
+    for(const{ov:o}of ove.slice(0,127)){
+      const _s=o.scale||1;const _rt=o.rotate||0;
+      const _hs=Math.abs(_s-1)>0.001;const _hr=Math.abs(_rt)>0.05;
+      bw.w(_hs?1:0,1);
+      if(_hs)bw.w(clamp(Math.round((_s-0.25)/3.75*127),0,127),7);
+      bw.w(_hr?1:0,1);
+      if(_hr)bw.w(clamp(Math.round(_rt)+180,0,360),9);
+    }
+  }
   return toB64u(bw.done())+exportCustomTexts();
 }
 
@@ -1927,6 +1986,20 @@ function importCompact(code){
       for(let li=LAYER_COUNT_V0;li<LAYERS.length;li++) controls[LAYERS[li].id].on=false;
     }
     if(typeof syncVFXUI==='function')syncVFXUI();
+    // v1.7: read optional transforms block (scale/rotate per override entry)
+    try{
+      const _hasTf=br.r(1);
+      if(_hasTf){
+        const _okeys=Object.keys(overrides);
+        for(const _key of _okeys){
+          const _ov=overrides[_key];
+          const _hs=br.r(1);
+          if(_hs){const _v=br.r(7);_ov.scale=Math.round((0.25+_v/127.0*3.75)*100)/100;}
+          const _hr=br.r(1);
+          if(_hr){const _v=br.r(9);_ov.rotate=_v-180;}
+        }
+      }
+    }catch(e){}
     }
 
   } else {
@@ -3237,8 +3310,9 @@ function render(){
     try{if(useAccent)FG=ACCENT;
     ctx.strokeStyle=layerCol;ctx.fillStyle=layerCol;ctx.lineWidth=1.5;
     const _layerSeed=effectiveSeed+l.id.length*7919+l.id.charCodeAt(0)*131;
+    _curCtx=ctx;
     DR[l.id](ctx,r,ctrl.density,ctrl.size,P,_layerSeed);
-    }finally{FG=_prevFG;}
+    }finally{_closeElemTransform();FG=_prevFG;}
     // Build pixel mask from diff
     if(_pre){
       const _post=ctx.getImageData(0,0,CW,CH);
@@ -3252,7 +3326,10 @@ function render(){
   // _customText mask: capture before/after drawCustomTexts
   let _ctPre=null;
   if(_vfxNeedMask.has('_customText'))_ctPre=ctx.getImageData(0,0,CW,CH);
+  _curCtx=ctx;
   drawCustomTexts(ctx, P, accentSet);
+  _closeElemTransform();
+  _curCtx=null;
   if(_ctPre){
     const _ctPost=ctx.getImageData(0,0,CW,CH);
     const mask=new Uint8Array(CW*CH);
@@ -3323,17 +3400,45 @@ function getCanvasPos(e){
   return{x:(e.clientX-rect.left)*scaleX,y:(e.clientY-rect.top)*scaleY};
 }
 
+// v1.7: hit-test the rotation/scale handles for the currently selected element
+function _handleHit(mx,my){
+  if(!selectedId)return null;
+  const e=elems.find(el=>el.id===selectedId&&!el.hidden);if(!e)return null;
+  const _rcx=e.x+e.w/2,_rcy=e.y-24;
+  if(Math.sqrt((mx-_rcx)**2+(my-_rcy)**2)<10)return'rotate';
+  const _shx=e.x+e.w+5,_shy=e.y+e.h+5;
+  if(Math.sqrt((mx-_shx)**2+(my-_shy)**2)<10)return'scale';
+  return null;
+}
+
 document.getElementById("cv").addEventListener("mousedown",e=>{
-  const pos=getCanvasPos(e);const hit=hitTest(pos.x,pos.y);
+  const pos=getCanvasPos(e);
+  // v1.7: check handle hits before normal hit test
+  const hh=_handleHit(pos.x,pos.y);
+  if(hh){
+    const el=elems.find(el=>el.id===selectedId&&!el.hidden);
+    const _cx=el.x+el.w/2,_cy=el.y+el.h/2;
+    const ov=getOv(selectedId);
+    undoStack.push({id:selectedId,pinned:ov.pinned?{...ov.pinned}:null,dx:ov.dx||0,dy:ov.dy||0,scale:ov.scale,rotate:ov.rotate});
+    if(undoStack.length>40)undoStack.shift();
+    dragState={id:selectedId,mode:hh,startMx:pos.x,startMy:pos.y,
+      cx:_cx,cy:_cy,
+      startScale:ov.scale||1,startRotate:ov.rotate||0,
+      startAngle:Math.atan2(pos.y-_cy,pos.x-_cx),
+      startDist:Math.sqrt((pos.x-_cx)**2+(pos.y-_cy)**2)||1,
+      w:el.w,h:el.h,moved:false};
+    return;
+  }
+  const hit=hitTest(pos.x,pos.y);
   if(hit){
     if(e.shiftKey){const ov=getOv(hit.id);ov.colorSwap=!ov.colorSwap;render();return;}
     selectedId=hit.id;
     // Save undo snapshot before move
     const ovSnap=getOv(hit.id);
-    undoStack.push({id:hit.id,pinned:ovSnap.pinned?{...ovSnap.pinned}:null,dx:ovSnap.dx||0,dy:ovSnap.dy||0});
+    undoStack.push({id:hit.id,pinned:ovSnap.pinned?{...ovSnap.pinned}:null,dx:ovSnap.dx||0,dy:ovSnap.dy||0,scale:ovSnap.scale,rotate:ovSnap.rotate});
     if(undoStack.length>40)undoStack.shift();
     // Record the element's current absolute position at drag start
-    dragState={id:hit.id,startMx:pos.x,startMy:pos.y,
+    dragState={id:hit.id,mode:'move',startMx:pos.x,startMy:pos.y,
       startElemX:hit.x,startElemY:hit.y,
       w:hit.w,h:hit.h,moved:false};
     drawSelectionOverlay();
@@ -3365,20 +3470,43 @@ function snapDrag(cx,cy,w,h,id){
 document.getElementById("cv").addEventListener("mousemove",e=>{
   const pos=getCanvasPos(e);
   if(dragState){
-    document.getElementById("cv").style.cursor="grabbing";
     const dx=pos.x-dragState.startMx,dy=pos.y-dragState.startMy;
-    if(Math.abs(dx)>3||Math.abs(dy)>3) dragState.moved=true;
+    if(Math.abs(dx)>2||Math.abs(dy)>2) dragState.moved=true;
     if(!dragState.moved)return;
+    const ov=getOv(dragState.id);
+    // v1.7: rotate mode
+    if(dragState.mode==='rotate'){
+      document.getElementById("cv").style.cursor="crosshair";
+      const angle=Math.atan2(pos.y-dragState.cy,pos.x-dragState.cx);
+      let delta=(angle-dragState.startAngle)*180/Math.PI;
+      let nr=dragState.startRotate+delta;
+      if(e.ctrlKey)nr=Math.round(nr/15)*15; // snap 15°
+      nr=((nr%360)+360)%360;if(nr>180)nr-=360; // normalise -180..180
+      ov.rotate=Math.round(nr*10)/10;
+      scheduleRender();drawSelectionOverlay();return;
+    }
+    // v1.7: scale mode
+    if(dragState.mode==='scale'){
+      document.getElementById("cv").style.cursor="se-resize";
+      const dist=Math.sqrt((pos.x-dragState.cx)**2+(pos.y-dragState.cy)**2);
+      let ns=clamp(dragState.startScale*(dist/dragState.startDist),0.1,8);
+      if(e.ctrlKey)ns=Math.round(ns*4)/4; // snap 0.25
+      ov.scale=Math.round(ns*100)/100;
+      scheduleRender();drawSelectionOverlay();return;
+    }
+    // move mode (original)
+    document.getElementById("cv").style.cursor="grabbing";
     const {id,startElemX,startElemY,w,h}=dragState;
-    // Free drag: no clamping, element can go outside canvas
-    let cx=startElemX+dx, cy=startElemY+dy;
-    // Snap (skip if Ctrl held)
+    let cx=startElemX+dx,cy=startElemY+dy;
     if(!e.ctrlKey){const snapped=snapDrag(cx,cy,w,h,id);cx=snapped.x;cy=snapped.y;}
-    // Pin at absolute position — detaches from generator's magnetic placement
-    const ov=getOv(id);
-    ov.pinned={x:cx,y:cy};
-    ov.dx=0;ov.dy=0;
+    ov.pinned={x:cx,y:cy};ov.dx=0;ov.dy=0;
     scheduleRender();return;
+  }
+  // Cursor feedback for handles
+  if(selectedId){
+    const hh=_handleHit(pos.x,pos.y);
+    if(hh==='rotate'){document.getElementById("cv").style.cursor="crosshair";return;}
+    if(hh==='scale'){document.getElementById("cv").style.cursor="se-resize";return;}
   }
   const hit=hitTest(pos.x,pos.y);
   document.getElementById("cv").style.cursor=hit?(e.shiftKey?"crosshair":"grab"):"default";
@@ -3391,7 +3519,7 @@ document.getElementById("cv").addEventListener("dblclick",e=>{
 document.addEventListener("keydown",e=>{
   if(document.activeElement.tagName==="INPUT")return;
 
-  // Ctrl+Z — undo last manual position change
+  // Ctrl+Z — undo last manual position/transform change
   if((e.key==="z"||e.key==="Z")&&(e.ctrlKey||e.metaKey)){
     e.preventDefault();
     if(!undoStack.length)return;
@@ -3399,7 +3527,35 @@ document.addEventListener("keydown",e=>{
     const ov=getOv(snap.id);
     if(snap.pinned)ov.pinned={...snap.pinned};else delete ov.pinned;
     ov.dx=snap.dx;ov.dy=snap.dy;
+    if(snap.scale!==undefined)ov.scale=snap.scale;else delete ov.scale;
+    if(snap.rotate!==undefined)ov.rotate=snap.rotate;else delete ov.rotate;
     render();return;
+  }
+  // v1.7: [ ] rotate, - = scale, 0 reset transforms for selected element
+  if(selectedId&&!e.ctrlKey&&!e.metaKey){
+    const _ov=getOv(selectedId);
+    const _step=e.altKey?1:5;const _sf=e.altKey?1.05:1.1;
+    if(e.key==='['||e.key===']'){
+      e.preventDefault();
+      const _last=undoStack[undoStack.length-1];
+      if(!_last||_last.id!==selectedId||!_last._rotNudge){undoStack.push({id:selectedId,pinned:_ov.pinned?{..._ov.pinned}:null,dx:_ov.dx||0,dy:_ov.dy||0,scale:_ov.scale,rotate:_ov.rotate,_rotNudge:true});if(undoStack.length>40)undoStack.shift();}
+      let _nr=((_ov.rotate||0)+(e.key==='['?-_step:_step));
+      _nr=(((_nr%360)+360)%360);if(_nr>180)_nr-=360;
+      _ov.rotate=Math.round(_nr);scheduleRender();drawSelectionOverlay();return;
+    }
+    if(e.key==='-'||e.key==='='||e.key==='+'){
+      e.preventDefault();
+      const _last=undoStack[undoStack.length-1];
+      if(!_last||_last.id!==selectedId||!_last._scNudge){undoStack.push({id:selectedId,pinned:_ov.pinned?{..._ov.pinned}:null,dx:_ov.dx||0,dy:_ov.dy||0,scale:_ov.scale,rotate:_ov.rotate,_scNudge:true});if(undoStack.length>40)undoStack.shift();}
+      const _ns=clamp((e.key==='-'?(_ov.scale||1)/_sf:(_ov.scale||1)*_sf),0.1,8);
+      _ov.scale=Math.round(_ns*100)/100;scheduleRender();drawSelectionOverlay();return;
+    }
+    if(e.key==='0'){
+      e.preventDefault();
+      undoStack.push({id:selectedId,pinned:_ov.pinned?{..._ov.pinned}:null,dx:_ov.dx||0,dy:_ov.dy||0,scale:_ov.scale,rotate:_ov.rotate});
+      if(undoStack.length>40)undoStack.shift();
+      delete _ov.scale;delete _ov.rotate;scheduleRender();drawSelectionOverlay();return;
+    }
   }
 
   // Arrow nudge for selected element
@@ -3412,7 +3568,7 @@ document.addEventListener("keydown",e=>{
     const last=undoStack[undoStack.length-1];
     if(!last||last.id!==selectedId||last._nudge!==true){
       const ovSnap=getOv(selectedId);
-      undoStack.push({id:selectedId,pinned:ovSnap.pinned?{...ovSnap.pinned}:null,dx:ovSnap.dx||0,dy:ovSnap.dy||0,_nudge:true});
+      undoStack.push({id:selectedId,pinned:ovSnap.pinned?{...ovSnap.pinned}:null,dx:ovSnap.dx||0,dy:ovSnap.dy||0,scale:ovSnap.scale,rotate:ovSnap.rotate,_nudge:true});
       if(undoStack.length>40)undoStack.shift();
     }
     const dx=e.key==="ArrowLeft"?-step:e.key==="ArrowRight"?step:0;
